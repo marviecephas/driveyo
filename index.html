@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DriveYo - Smart Mobility & Smart Public Safety Network</title>
+  
+  <!-- Leaflet CSS for Map -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+  
+  <!-- Google Fonts & Custom Styles -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  
+  <!-- Background Glowing Orbs for Light Mode -->
+  <div class="bg-glow-orb orb-1"></div>
+  <div class="bg-glow-orb orb-2"></div>
+
+  <!-- Header -->
+  <header>
+    <div class="logo-container">
+      <div class="logo-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+        </svg>
+      </div>
+      <div class="logo-text">Drive<span>Yo</span></div>
+    </div>
+    
+    <!-- Tab Controls (Dynamically Hidden based on active portal) -->
+    <nav class="tabs-navigation" id="main-nav-tabs" style="display: none;">
+      <button class="tab-btn" data-tab="driver-tab" id="nav-btn-driver">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        Driver Portal
+      </button>
+      <button class="tab-btn" data-tab="passenger-tab" id="nav-btn-passenger">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        Passenger Portal
+      </button>
+      <button class="tab-btn" data-tab="dispatcher-tab" id="nav-btn-dispatcher">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+        Dispatcher Portal
+      </button>
+    </nav>
+
+    <!-- Global Threat Indicator & Switch Exit button -->
+    <div style="display: flex; align-items: center; gap: 1rem;">
+      <button id="header-report-btn" class="btn btn-danger" style="width: auto; padding: 0.4rem 1rem; font-size: 0.8rem; font-weight: 700; box-shadow: var(--shadow-red);" onclick="openMissingPersonModal()">
+        🚨 Report Missing
+      </button>
+      
+      <button id="header-exit-btn" class="btn btn-outline" style="display: none; width: auto; padding: 0.4rem 1rem; font-size: 0.8rem;" onclick="exitToLanding()">
+        ← Switch Role
+      </button>
+      
+      <div class="system-status" id="global-status-indicator">
+        <div class="status-dot"></div>
+        <span id="status-text">Network Secured</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Toast Notifications -->
+  <div class="toast-notification" id="toast-notify">
+    <span class="toast-notification-icon" id="toast-icon">✓</span>
+    <span id="toast-message">Success message here</span>
+  </div>
+
+  <!-- Report Missing Person Modal Overlay -->
+  <div class="modal-overlay" id="missing-person-modal" style="display: none;">
+    <div class="glass-card card-accent-red" style="max-width: 500px; width: 90%; margin: auto; padding: 2rem; box-shadow: var(--shadow-red); transform: translateY(-20px); transition: transform 0.3s ease-out;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <h2 style="color: var(--accent-red); margin: 0; display: flex; align-items: center; gap: 0.5rem;">
+          <span>🚨</span> Flag Missing Person
+        </h2>
+        <button onclick="closeMissingPersonModal()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-secondary);">&times;</button>
+      </div>
+      <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1.5rem;">
+        Flag a commuter who is overdue or unresponsive. This alerts dispatch immediately, decrypts safe transit records for law enforcement, and flags search networks.
+      </p>
+
+      <form id="missing-person-form" onsubmit="submitMissingPersonAlert(event)">
+        <div class="form-group">
+          <label for="missing-name">Missing Commuter Full Name</label>
+          <input type="text" id="missing-name" class="form-control" placeholder="Tunde Bakare" required>
+        </div>
+        <div class="form-group">
+          <label for="missing-route">Expected Route Taken</label>
+          <select id="missing-route" class="form-control" required>
+            <option value="" disabled selected>Select route path</option>
+            <option value="yaba-ojuelegba">Yaba to Ojuelegba Commercial Corridor</option>
+            <option value="ikeja-surulere">Ikeja to Surulere Commuter Expressway</option>
+            <option value="lekki-vi">Lekki Tollgate to Victoria Island Central Pathway</option>
+          </select>
+        </div>
+        <div style="display: flex; gap: 0.75rem; margin-top: 1.5rem;">
+          <button type="submit" class="btn btn-danger">Flag Commuter as Missing</button>
+          <button type="button" class="btn btn-outline" onclick="closeMissingPersonModal()">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- App Wrapper -->
+  <main class="app-container">
+
+    <!-- ==============================================
+         ROLE SELECTION LANDING VIEW (FIRST TOUCH)
+         ============================================== -->
+    <section class="panel-view active" id="landing-tab">
+      <div class="role-selection-wrapper">
+        <div class="role-selection-title">
+          <h1>Welcome to DriveYo</h1>
+          <p>Dismantling the anonymity of public transit kidnapping (<span>"One Chance"</span>) in Nigeria.</p>
+        </div>
+        
+        <div class="role-cards-grid">
+          <!-- Passenger Option -->
+          <div class="role-card-select passenger-option" onclick="chooseUserRole('passenger')">
+            <div class="role-card-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+              </svg>
+            </div>
+            <div>
+              <div class="role-card-title">I am a Passenger</div>
+              <p class="role-card-desc">Sign in with your Google account, verify the vehicle driver's daily security PIN, and board safely with silent backend audits.</p>
+            </div>
+          </div>
+
+          <!-- Driver Option -->
+          <div class="role-card-select driver-option" onclick="chooseUserRole('driver')">
+            <div class="role-card-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+              </svg>
+            </div>
+            <div>
+              <div class="role-card-title">I am a Driver</div>
+              <p class="role-card-desc">Complete one-time legal registration, verify daily face biometrics with license login, and generate dynamic passenger boarding PINs.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Dispatcher Portal Login Gateway -->
+        <div class="landing-alerts-container" style="max-width: 500px; margin: 2rem auto 0 auto;">
+          <div class="glass-card card-accent-cyan" style="padding: 1.25rem; display: flex; flex-direction: column; justify-content: space-between; margin-top: 0; text-align: center;">
+            <div>
+              <h3 style="color: var(--accent-cyan); margin-bottom: 0.5rem; font-size: 1rem; display: flex; align-items: center; gap: 0.4rem; justify-content: center;">
+                <span>👮</span> Law Enforcement Gateway
+              </h3>
+              <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 1rem;">
+                Authorized FRSC command center and Lagos state police dispatch audit log viewer.
+              </p>
+            </div>
+            <button class="btn btn-outline" style="padding: 0.6rem;" onclick="chooseUserRole('dispatcher')">Dispatcher Portal Login</button>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ==============================================
+         DRIVER PORTAL PANEL (PROGRESSIVE SCREENS)
+         ============================================== -->
+    <section class="panel-view" id="driver-tab">
+      <div class="glass-card card-accent-cyan" id="driver-portal-card" style="max-width: 600px; margin: 2rem auto; box-shadow: 0 10px 40px rgba(0,0,0,0.04);">
+        
+        <!-- STEP 1: One-time Onboarding Registration -->
+        <div id="driver-step-register" style="display: none;">
+          <h2 class="card-title">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            Driver Account Registration
+          </h2>
+          <p>Onboard your commercial vehicle credentials into the public safety network database (Step 1 of 4).</p>
+
+          <div class="role-badge-row">
+            <span class="role-select-badge active" onclick="loadMockDriver(1)">Load Demo Profile 1 (Chinedu)</span>
+            <span class="role-select-badge" onclick="loadMockDriver(2)">Load Demo Profile 2 (Alhaji)</span>
+          </div>
+
+          <form id="driver-onboarding-form" onsubmit="handleDriverRegister(event)">
+            <div class="form-group">
+              <label for="driver-name">Full Legal Name</label>
+              <input type="text" id="driver-name" class="form-control" placeholder="Chinedu Okafor" required>
+            </div>
+            <div class="form-group">
+              <label for="driver-license">Govt. Driving License Number</label>
+              <input type="text" id="driver-license" class="form-control" placeholder="DL-19385-LAG" required>
+            </div>
+            <div class="form-group">
+              <label for="driver-plate">Vehicle License Plate</label>
+              <input type="text" id="driver-plate" class="form-control" placeholder="EKY-498AB" required>
+            </div>
+            <div class="form-group">
+              <label for="driver-address">Verified Physical Residential Home Address</label>
+              <input type="text" id="driver-address" class="form-control" placeholder="12, Herbert Macaulay Way, Yaba, Lagos" required>
+            </div>
+            <div class="form-group">
+              <label for="driver-route">Declared Daily Commercial Route Pathway</label>
+              <select id="driver-route" class="form-control" required>
+                <option value="" disabled selected>Select route path</option>
+                <option value="yaba-ojuelegba">Yaba to Ojuelegba Commercial Corridor</option>
+                <option value="ikeja-surulere">Ikeja to Surulere Commuter Expressway</option>
+                <option value="lekki-vi">Lekki Tollgate to Victoria Island Central Pathway</option>
+              </select>
+            </div>
+            
+            <button type="submit" class="btn btn-cyan">Register & Proceed</button>
+            
+            <p style="font-size: 0.8rem; text-align: center; margin-top: 1rem; color: var(--text-secondary);">
+              Already registered? <span class="switch-onboarding-link" onclick="toggleDriverAuthViews('login')">Sign In with License</span>
+            </p>
+          </form>
+        </div>
+
+        <!-- STEP 2: Daily License Login -->
+        <div id="driver-step-login">
+          <h2 class="card-title">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+            Daily License Login
+          </h2>
+          <p>Verify your driver license number to authorize biometric checks (Step 2 of 4).</p>
+          
+          <div class="role-badge-row">
+            <span class="role-select-badge active" onclick="loadMockLoginDriver(1)">Select Demo Driver 1 (Chinedu)</span>
+            <span class="role-select-badge" onclick="loadMockLoginDriver(2)">Select Demo Driver 2 (Alhaji)</span>
+          </div>
+
+          <form id="driver-login-form" onsubmit="handleDriverLoginAttempt(event)">
+            <div class="form-group">
+              <label for="login-license">Government Driving License Number</label>
+              <input type="text" id="login-license" class="form-control" placeholder="DL-19385-LAG" required>
+            </div>
+            
+            <button type="submit" class="btn btn-cyan">Verify License & Proceed</button>
+            
+            <p style="font-size: 0.8rem; text-align: center; margin-top: 1rem; color: var(--text-secondary);">
+              New operator? <span class="switch-onboarding-link" onclick="toggleDriverAuthViews('register')">Register Account</span>
+            </p>
+          </form>
+        </div>
+
+        <!-- STEP 3: Biometric Liveness Face Scan -->
+        <div id="driver-step-scan" style="display: none;">
+          <h2 class="card-title">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+            Biometric Check-In (Liveness Scan)
+          </h2>
+          <p>Complete your facial liveness check to generate today's dynamic PIN (Step 3 of 4).</p>
+
+          <!-- Face Scan Area -->
+          <div class="scanner-container" id="liveness-scanner">
+            <div class="scanner-video-placeholder" style="background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);">
+              <div style="width: 100%; height: 100%; background-image: linear-gradient(rgba(15,23,42,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(15,23,42,0.03) 1px, transparent 1px); background-size: 20px 20px; position: absolute;"></div>
+            </div>
+            
+            <div class="scanner-overlay">
+              <div class="scanner-reticle"></div>
+              <div class="scanner-face-mesh" id="face-mesh"></div>
+            </div>
+            
+            <div class="scanner-line"></div>
+            <div class="scanner-status-text" id="scanner-label">Awaiting Scan</div>
+          </div>
+
+          <div style="margin-top: 1.25rem; display: flex; gap: 0.75rem;">
+            <button class="btn btn-green" id="start-checkin-btn" onclick="simulateFaceScan()">
+              Start Biometric Facial Check-In
+            </button>
+            <button class="btn btn-outline" style="width: auto;" onclick="resetDriverSession()">Cancel</button>
+          </div>
+        </div>
+
+        <!-- STEP 4: Active Driver Dashboard & PIN Display -->
+        <div id="driver-step-dashboard" style="display: none;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 1px solid var(--glass-border);">
+            <div>
+              <span class="badge badge-green" style="margin-bottom: 0.5rem;">Verified Daily Session</span>
+              <h2 id="display-driver-name" style="margin-bottom: 0;">Driver Name</h2>
+              <p id="display-driver-license" style="font-size: 0.85rem; color: var(--accent-cyan); font-weight: 700; margin-bottom: 0;"></p>
+            </div>
+            <button class="btn btn-outline" style="width: auto; padding: 0.4rem 0.8rem; font-size: 0.8rem;" onclick="resetDriverSession()">Sign Out</button>
+          </div>
+          
+          <div style="margin-bottom: 1.25rem;">
+            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-bottom: 1rem;">
+              <div>
+                <span style="font-size: 0.7rem; color: var(--text-secondary); text-transform: uppercase;">Vehicle Plate</span>
+                <div id="display-driver-plate" style="font-weight: 700;">Plate</div>
+              </div>
+              <div>
+                <span style="font-size: 0.7rem; color: var(--text-secondary); text-transform: uppercase;">Declared Route</span>
+                <div id="display-driver-route" style="font-weight: 700; font-size: 0.85rem;">Route</div>
+              </div>
+            </div>
+            <div>
+              <span style="font-size: 0.7rem; color: var(--text-secondary); text-transform: uppercase;">Residential Address</span>
+              <div id="display-driver-address" style="font-size: 0.85rem; font-weight: 600;">Address</div>
+            </div>
+          </div>
+
+          <!-- Dynamic PIN Generation Area -->
+          <div class="pin-display-card" id="pin-display-panel">
+            <div style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-secondary); letter-spacing: 0.5px;">
+              Your 24hr Dynamic Passenger Boarding PIN
+            </div>
+            <div class="pin-number" id="driver-pin-code">----</div>
+            <p style="font-size: 0.75rem; margin-bottom: 0;">
+              Share this PIN with boarding passengers. The safety network silent tracking initializes in the background.
+            </p>
+          </div>
+
+          <!-- Daily Checkin status info -->
+          <div id="driver-checkin-completed-info" class="secure-link-banner" style="background: rgba(16, 185, 129, 0.03); margin-top: 1rem;">
+            <h3>
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+              Liveness Verified & Signed In
+            </h3>
+            <p>Dynamic 24h safety handshake PIN is generated and active.</p>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ==============================================
+         PASSENGER PORTAL PANEL (SILENT / SECURE HANDSHAKE)
+         ============================================== -->
+    <section class="panel-view" id="passenger-tab">
+      
+      <!-- STATE A: Logged Out - Commuter Sign-In First -->
+      <div class="glass-card card-accent-cyan" id="passenger-auth-view" style="max-width: 500px; margin: 3rem auto; box-shadow: 0 10px 40px rgba(0,0,0,0.05);">
+        <h2 class="card-title" style="justify-content: center; margin-bottom: 1rem;">
+          <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          Passenger Sign-In
+        </h2>
+        <p style="text-align: center; margin-bottom: 1.5rem;">
+          Sign in securely with Google to verify your legal transit profile.
+        </p>
+
+        <div class="role-badge-row" style="justify-content: center;">
+          <span class="role-select-badge active" onclick="loadMockPassenger(1)">Use Demo Profile 1 (Tunde)</span>
+          <span class="role-select-badge" onclick="loadMockPassenger(2)">Use Demo Profile 2 (Ngozi)</span>
+        </div>
+
+        <button class="oauth-btn" onclick="handleSimulatedOAuthLogin()">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" style="margin-right: 0.5rem;">
+            <path d="M12.24 10.285V13.4h6.887c-.275 1.565-1.88 4.604-6.887 4.604-4.33 0-7.866-3.577-7.866-8s3.536-8 7.866-8c2.46 0 4.105 1.025 5.047 1.926l2.427-2.334C17.955 2.192 15.34 1 12.24 1 6.033 1 1 6.033 1 12.24s5.033 11.24 11.24 11.24c6.478 0 10.793-4.537 10.793-10.986 0-.745-.08-1.3-.175-1.859H12.24z"/>
+          </svg>
+          Sign In with Google
+        </button>
+      </div>
+
+      <!-- STATE B: Logged In - Pre-Boarding Handshake Portal -->
+      <div id="passenger-portal-view" style="display: none;">
+        <div style="max-width: 600px; margin: 0 auto;">
+          
+          <div class="glass-card card-accent-cyan" style="box-shadow: 0 10px 30px rgba(0,0,0,0.02);">
+            
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 1px solid var(--glass-border);">
+              <div>
+                <span style="font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase;">Logged In Commuter</span>
+                <div style="font-weight: 700; font-size: 1rem;" id="passenger-logged-in-name">Tunde Bakare</div>
+              </div>
+              <button class="btn btn-outline" style="width: auto; padding: 0.35rem 0.75rem; font-size: 0.75rem;" onclick="handleOAuthLogout()">Sign Out</button>
+            </div>
+
+            <h2 class="card-title" style="margin-bottom: 0.5rem;">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>
+              Pre-Boarding Handshake Verification
+            </h2>
+            <p>Input the driver's daily dynamic PIN before boarding. To maintain security and privacy, operator identities and map coordinates are tracked silently in the background.</p>
+            
+            <form id="passenger-handshake-form" onsubmit="handlePreBoardingHandshake(event)">
+              <div class="form-group">
+                <label for="handshake-pin">Enter Driver Daily PIN</label>
+                <input type="text" id="handshake-pin" class="form-control" style="font-size: 2rem; text-align: center; letter-spacing: 10px; font-weight: 800; font-family: monospace; padding: 1rem;" placeholder="0000" maxlength="4" required>
+              </div>
+              
+              <button type="submit" class="btn btn-cyan" id="handshake-btn">Verify Transit PIN</button>
+            </form>
+
+            <!-- Verification Output States -->
+            <div id="handshake-result-verified" style="display: none; margin-top: 1.5rem; text-align: center; animation: fadeIn 0.4s ease-out;">
+              <div style="background: rgba(16, 185, 129, 0.08); border: 2px solid var(--accent-green); border-radius: 12px; padding: 2rem; box-shadow: var(--shadow-green);">
+                <div style="font-size: 3rem; margin-bottom: 0.5rem;">✓</div>
+                <h2 style="color: var(--accent-green); font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.5rem; font-size: 1.6rem;">
+                  VERIFIED - ENTER VEHICLE
+                </h2>
+                <p style="color: var(--text-primary); font-size: 0.875rem; margin-bottom: 0; font-weight: 600;">
+                  Digital safety handshake logged successfully. Autonomous real-time route monitoring is active in the background.
+                </p>
+              </div>
+              <button class="btn btn-outline" style="margin-top: 1.5rem;" onclick="resetHandshakeForm()">Board Another Vehicle</button>
+            </div>
+
+            <div id="handshake-result-unverified" style="display: none; margin-top: 1.5rem; text-align: center; animation: fadeIn 0.4s ease-out;">
+              <div style="background: rgba(239, 68, 68, 0.08); border: 2px solid var(--accent-red); border-radius: 12px; padding: 2rem; box-shadow: var(--shadow-red); animation: blink 1.5s infinite alternate;">
+                <div style="font-size: 3rem; margin-bottom: 0.5rem; color: var(--accent-red);">⚠</div>
+                <h2 style="color: var(--accent-red); font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.5rem; font-size: 1.6rem;">
+                  UNVERIFIED - DO NOT ENTER
+                </h2>
+                <p style="color: var(--text-primary); font-size: 0.875rem; margin-bottom: 0; font-weight: 600;">
+                  Safety Alert: This PIN is suspended, invalid, or expired. Safety network patrol notifications have been armed.
+                </p>
+              </div>
+              <button class="btn btn-outline" style="margin-top: 1.5rem;" onclick="resetHandshakeForm()">Retry PIN Verification</button>
+            </div>
+
+          </div>
+
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ==============================================
+         EMERGENCY DISPATCHER & LAW ENFORCEMENT PANEL
+         ============================================== -->
+    <section class="panel-view" id="dispatcher-tab">
+      <div class="glass-card card-accent-red">
+        
+        <!-- Top Title & Alert Indicators -->
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.5rem;">
+          <div>
+            <h2 class="card-title" style="color: var(--accent-red); margin-bottom: 0;">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="12 8 12 12 15 15"/></svg>
+              Emergency Dispatch & Law Enforcement Ledger
+            </h2>
+            <p>Query transit anchors of missing persons and track route coordinates telemetry.</p>
+          </div>
+        </div>
+
+        <!-- Dispatcher Urgent Broadcast Warning Box -->
+        <div id="dispatcher-message-box" class="glass-card card-accent-red" style="display: none; background: rgba(239, 68, 68, 0.08); border-color: var(--accent-red); margin-bottom: 1.5rem; animation: blink 1.5s infinite alternate;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h3 style="color: var(--accent-red); margin: 0; font-size: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+              <span>🚨</span> URGENT BROADCAST ALARM
+            </h3>
+            <button class="btn btn-outline" style="width: auto; padding: 0.25rem 0.5rem; font-size: 0.7rem;" onclick="closeDispatcherMessageBox()">Dismiss</button>
+          </div>
+          <p id="dispatcher-message-content" style="font-weight: 700; font-size: 0.85rem; margin-top: 0.5rem; margin-bottom: 0; color: var(--text-primary); line-height: 1.4;">
+            ALERT: Sector boundary breached.
+          </p>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1.2fr 1fr; gap: 2rem;" class="grid-2-col">
+          
+          <!-- Left Col: Search Query Form & Active Missing Alerts list -->
+          <div>
+            <div class="glass-card" style="padding: 1.25rem; margin-top: 0; background: rgba(15,23,42,0.01); border-color: rgba(0,0,0,0.06);">
+              <h3 style="font-size: 0.9rem; font-weight: 700; margin-bottom: 1rem;">Manual Commuter Query</h3>
+              <form onsubmit="handleEmergencyLookup(event)">
+                <div class="form-group">
+                  <label for="dispatcher-search-name">Missing Commuter Full Name</label>
+                  <input type="text" id="dispatcher-search-name" class="form-control" placeholder="Tunde Bakare" required>
+                </div>
+                <div class="form-group">
+                  <label for="dispatcher-search-route">Expected Transit Route</label>
+                  <select id="dispatcher-search-route" class="form-control" required>
+                    <option value="" disabled selected>Select expected route path</option>
+                    <option value="yaba-ojuelegba">Yaba to Ojuelegba Commercial Corridor</option>
+                    <option value="ikeja-surulere">Ikeja to Surulere Commuter Expressway</option>
+                    <option value="lekki-vi">Lekki Tollgate to Victoria Island Central Pathway</option>
+                  </select>
+                </div>
+                <button type="submit" class="btn btn-danger">Query Safe Transit Ledger</button>
+              </form>
+            </div>
+
+            <!-- Active Public Missing Alerts List -->
+            <div class="glass-card card-accent-red" style="padding: 1.25rem; margin-top: 1rem;">
+              <h3 style="font-size: 0.95rem; color: var(--accent-red); font-weight: 800; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.4rem;">
+                <span class="pulse-red-dot" style="display: inline-block; width: 8px; height: 8px; background: var(--accent-red); border-radius: 50%;"></span>
+                Public Missing Person Alert Feeds (Active)
+              </h3>
+              <p style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 1rem;">
+                Click any public alert below to decrypt their last ride anchor and load live vehicle GPS telemetry.
+              </p>
+              
+              <div class="missing-alerts-list" id="dispatcher-missing-list">
+                <!-- Populated dynamically via app.js -->
+                <div style="text-align: center; font-size: 0.8rem; color: var(--text-muted); padding: 1rem;">
+                  No active public missing reports broadcasted.
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right Col: Retrieved Driver Credentials -->
+          <div id="dispatcher-driver-details-panel" style="display: none; position: relative;">
+            <div class="glass-card card-accent-red" style="padding: 1.5rem; margin-top: 0; border-color: var(--accent-red); position: relative;">
+              <button class="close-card-btn" onclick="clearRetrievedDriverDetails()" style="position: absolute; top: 0.75rem; right: 0.75rem; background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-secondary); line-height: 1;" title="Clear Search Result">&times;</button>
+              
+              <h3 style="font-size: 1rem; color: var(--accent-red); text-transform: uppercase; font-weight: 700; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+                <span>🚨</span> Decrypted Ride Credentials
+              </h3>
+              
+              <div class="ledger-result-card" style="padding: 0; background: transparent; border: none; grid-template-columns: 80px 1fr; gap: 1rem; margin-top: 0; display: grid;">
+                <div class="ledger-driver-photo-container">
+                  <div class="ledger-driver-photo" id="ledger-driver-photo-box" style="width: 75px; height: 75px; border-radius: 8px; overflow: hidden; background: #e2e8f0;">
+                    <!-- photo -->
+                  </div>
+                  <span class="badge badge-red" style="font-size: 0.65rem; width: 100%; justify-content: center; margin-top: 0.35rem;" id="ledger-driver-status-badge">PIN Suspended</span>
+                </div>
+
+                <div style="display: flex; flex-direction: column; gap: 0.4rem;">
+                  <div>
+                    <span class="detail-label">Legal Operator Name</span>
+                    <span class="detail-value" id="ledger-driver-name" style="font-size: 0.95rem; font-weight: 700;">Chinedu Okafor</span>
+                  </div>
+                  <div>
+                    <span class="detail-label">Plate / License</span>
+                    <span class="detail-value" style="font-size: 0.85rem;"><strong id="ledger-driver-plate">EKY-498AB</strong> | <span id="ledger-driver-license">DL-19385-LAG</span></span>
+                  </div>
+                </div>
+              </div>
+
+              <div style="border-top: 1px solid rgba(0,0,0,0.08); padding-top: 0.75rem; margin-top: 0.75rem; display: flex; flex-direction: column; gap: 0.5rem; font-size: 0.8rem;">
+                <div>
+                  <span class="detail-label">Handshake Timestamp</span>
+                  <span class="detail-value" id="ledger-handshake-time" style="font-weight: 700; color: var(--accent-warning);">10-Jul-2026 12:35 PM</span>
+                </div>
+                <div>
+                  <span class="detail-label">Residential Address</span>
+                  <span class="detail-value" id="ledger-driver-address" style="font-size: 0.85rem;">12, Herbert Macaulay Way, Yaba, Lagos</span>
+                </div>
+                <div>
+                  <span class="detail-label">Expected Path Route</span>
+                  <span class="detail-value route-line" id="ledger-driver-route" style="display: inline-block; width: 100%;">Yaba to Ojuelegba Commercial Corridor</span>
+                </div>
+              </div>
+
+              <!-- Simulation Trigger Actions (Hides map until clicked) -->
+              <div style="border-top: 1px solid rgba(0,0,0,0.08); padding-top: 0.75rem; margin-top: 0.75rem; display: flex; flex-direction: column; gap: 0.5rem;">
+                <span class="detail-label" style="text-transform: uppercase; font-size: 0.7rem; font-weight: 700; color: var(--text-secondary);">Verify Telemetry Feed</span>
+                <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                  <button class="btn btn-danger" style="padding: 0.5rem 0.75rem; font-size: 0.75rem; width: auto;" onclick="triggerRouteDeviation()">Simulate Deviation</button>
+                  <button class="btn btn-warning" style="padding: 0.5rem 0.75rem; font-size: 0.75rem; width: auto; background: var(--accent-warning); color: #000; border-color: var(--accent-warning);" onclick="triggerOutOfBoundsRoute()">Simulate Sector Breach</button>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Ledger Result Output & Map (Tied to Search / Alert Select) -->
+        <div class="ledger-results" id="ledger-search-output" style="display: none; margin-top: 2rem;">
+          
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;" class="grid-2-col">
+            
+            <!-- Left: Anomaly Details & Action Controls (Only displays when simulating anomalies) -->
+            <div style="display: flex; flex-direction: column; gap: 1rem;">
+              
+              <!-- Floating Driver Alert Box (Driver that is deviating) -->
+              <div id="floating-driver-alert-box" class="glass-card card-accent-red" style="background: rgba(239, 68, 68, 0.05); border-color: var(--accent-red); margin-top: 0; padding: 1rem; position: relative; animation: fadeIn 0.4s ease-out;">
+                <h3 style="color: var(--accent-red); margin-bottom: 0.5rem; font-size: 0.9rem; display: flex; align-items: center; gap: 0.4rem;">
+                  <span>🚨</span> Active Vehicle Threat Alert
+                </h3>
+                <p style="font-size: 0.8rem; line-height: 1.4; margin-bottom: 0.75rem;" id="floating-driver-alert-text">
+                  Operator Chinedu Okafor is deviating from declared Surulere route. Plate: EKY-498AB.
+                </p>
+                
+                <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                  <button class="btn btn-danger" style="padding: 0.4rem 0.8rem; font-size: 0.75rem; width: auto;" onclick="alert('DISPATCH ORDER: FRSC Patrol notified. Direct deployment sent to last tracked coordinates.')">
+                    Dispatch Patrol
+                  </button>
+                  <button class="btn btn-outline" style="padding: 0.4rem 0.8rem; font-size: 0.75rem; width: auto;" onclick="alert('BROADCAST: Identity packet broadcasted to all sector units.')">
+                    Broadcast Packet
+                  </button>
+                  <button class="btn btn-outline" style="padding: 0.4rem 0.8rem; font-size: 0.75rem; width: auto;" onclick="restartTelemetrySimulation()">
+                    Reset Simulation
+                  </button>
+                </div>
+              </div>
+
+              <!-- Telemetry GPS Coordinates Gauges -->
+              <div class="glass-card card-accent-cyan" style="padding: 1rem; margin-top: 0;">
+                <h4 style="font-size: 0.85rem; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.4rem;">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/></svg>
+                  Telemetry Audit Gauges
+                </h4>
+                <div class="telemetry-status-grid" style="margin: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+                  <div class="status-indicator" style="padding: 0.4rem;">
+                    <div class="status-indicator-label">GPS Status</div>
+                    <div class="status-indicator-value verified" id="gps-status-value">ONLINE</div>
+                  </div>
+                  <div class="status-indicator" style="padding: 0.4rem;">
+                    <div class="status-indicator-label">Path Deviation</div>
+                    <div class="status-indicator-value verified" id="route-status-value">ON ROUTE</div>
+                  </div>
+                </div>
+                <div style="font-size: 0.75rem; margin-top: 0.5rem; color: var(--text-secondary);">
+                  <strong>Live GPS Coords:</strong> <span id="telemetry-gps-coords" style="font-family: monospace;">6.5244, 3.3792</span>
+                </div>
+
+                <!-- Active Simulation Controls inside telemetry dashboard -->
+                <div style="display: flex; gap: 0.5rem; margin-top: 1rem; flex-wrap: wrap; border-top: 1px solid rgba(0,0,0,0.06); padding-top: 0.75rem;">
+                  <button class="btn btn-danger" style="padding: 0.5rem 0.75rem; font-size: 0.75rem; width: auto;" onclick="triggerRouteDeviation()">
+                    Simulate Deviation
+                  </button>
+                  <button class="btn btn-warning" style="padding: 0.5rem 0.75rem; font-size: 0.75rem; width: auto; background: var(--accent-warning); color: #000; border-color: var(--accent-warning);" onclick="triggerOutOfBoundsRoute()">
+                    Simulate Sector Breach
+                  </button>
+                  <button class="btn btn-outline" style="padding: 0.5rem 0.75rem; font-size: 0.75rem; width: auto;" onclick="restartTelemetrySimulation()">
+                    Restart Path
+                  </button>
+                </div>
+              </div>
+
+            </div>
+
+            <!-- Right: Leaflet Map Container for dispatcher -->
+            <div class="map-viewport-wrapper" style="height: 350px; margin-top: 0; position: relative;">
+              <!-- Silent Anomaly Warning Panel Floating Over Map -->
+              <div class="map-alert-overlay" id="map-emergency-overlay">
+                <div class="map-alert-header" style="background: var(--accent-red); color: white; padding: 0.5rem; font-weight: 700; border-radius: 4px 4px 0 0; display: flex; align-items: center; gap: 0.4rem;">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                  Emergency Intercept
+                </div>
+                <div class="map-alert-body" style="padding: 0.75rem; font-size: 0.75rem; background: rgba(255,255,255,0.95); color: var(--text-primary);">
+                  Route deviation audit failed. Dispatching coordinates directly to FRSC.
+                </div>
+              </div>
+              
+              <div id="map-telemetry-viewport" class="leaflet-map" style="height: 100%;"></div>
+            </div>
+
+          </div>
+        </div>
+
+        <div id="ledger-no-results" style="display: none; background: rgba(15,23,42,0.01); padding: 2rem; border-radius: 12px; text-align: center; border: 1px dashed var(--glass-border); margin-top: 1.5rem;">
+          <p style="margin-bottom: 0; color: var(--text-muted);">
+            No records found for that commuter name and expected route. Ensure they have signed in and verified a PIN handshake.
+          </p>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <!-- App JS -->
+  <script src="app.js"></script>
+</body>
+</html>
